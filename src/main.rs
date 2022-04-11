@@ -4,7 +4,7 @@ mod replicator;
 use crate::database::Database;
 use crate::replicator::Replicator;
 
-use clap::{Parser};
+use clap::Parser;
 use url::Url;
 
 #[derive(Parser)]
@@ -14,7 +14,7 @@ pub struct Args {
     /// Source database url
     #[clap(index = 1, required = true, value_name = "SOURCE")]
     source: String,
-    
+
     /// Target database url
     #[clap(index = 2, required = true, value_name = "TARGET")]
     target: String,

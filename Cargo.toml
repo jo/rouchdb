@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.1.6", features = ["derive", "env"] }
+md5 = "0.7.0"
 reqwest = { version = "0.11.10", features = ["json"] }
 serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
 tokio = { version = "1.1.17", features = ["full"] }
 url = "2.2.2"
-md5 = "0.7.0"
+uuid = { version = "0.8.2", features = ["serde", "v4"] }

@@ -14,13 +14,7 @@ First Steps:
 **Very** basic replication works \o/
 
 ### TODO
-* use session id
-* compare replication logs
-* request changes since
-* store replication logs
-* make it work with arbritary docs (currently only foo is supported)
 * make it work with attachments
-* emit errors
 * rething struct naming
 
 (c) 2022 by Johannes J. Schmidt
