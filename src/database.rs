@@ -117,7 +117,10 @@ impl Database {
                 let data = response.json::<ServerInfo>().await?;
                 Ok(Some(data))
             }
-            _ => panic!("Problem reading server info"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading server info: {}", text)
+            },
         }
     }
 
@@ -130,7 +133,10 @@ impl Database {
                 let data = response.json::<DatabaseInfo>().await?;
                 Ok(Some(data))
             }
-            _ => panic!("Problem reading database info"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading database info: {}", text)
+            },
         }
     }
 
@@ -156,7 +162,10 @@ impl Database {
                     session_id: None
                 })
             },
-            _ => panic!("Problem reading replication log"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading replication log: {}", text)
+            }
         }
     }
 
@@ -197,7 +206,10 @@ impl Database {
                 let data = response.json::<Changes>().await?;
                 Ok(Some(data))
             }
-            _ => panic!("Problem reading changes feed"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading changes: {}", text)
+            },
         }
     }
 
@@ -216,7 +228,10 @@ impl Database {
                 let diff = RevsDiff { body };
                 Ok(Some(diff))
             }
-            _ => panic!("Problem reading revs diff"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading revs diff: {}", text)
+            },
         }
     }
 
@@ -236,7 +251,10 @@ impl Database {
                 let body = response.json::<DocsResponse>().await?;
                 Ok(Some(body))
             }
-            _ => panic!("Problem reading docs"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem reading docs: {}", text)
+            },
         }
     }
 
