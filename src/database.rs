@@ -21,7 +21,7 @@ pub struct ReplicationLog {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _rev: Option<String>,
     pub source_last_seq: Option<String>,
-    pub session_id: Option<Uuid>
+    pub session_id: Option<Uuid>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -120,7 +120,7 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading server info: {}", text)
-            },
+            }
         }
     }
 
@@ -136,13 +136,13 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading database info: {}", text)
-            },
+            }
         }
     }
 
     pub async fn get_replication_log(
         &self,
-        replication_id: &str
+        replication_id: &str,
     ) -> Result<ReplicationLog, Box<dyn Error>> {
         let id = format!("_local/{}", replication_id);
         let mut url = self.url.clone();
@@ -154,14 +154,12 @@ impl Database {
                 let data = response.json::<ReplicationLog>().await?;
                 Ok(data)
             }
-            StatusCode::NOT_FOUND => {
-                Ok(ReplicationLog {
-                    _id: id,
-                    _rev: None,
-                    source_last_seq: None,
-                    session_id: None
-                })
-            },
+            StatusCode::NOT_FOUND => Ok(ReplicationLog {
+                _id: id,
+                _rev: None,
+                source_last_seq: None,
+                session_id: None,
+            }),
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading replication log: {}", text)
@@ -183,11 +181,14 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem writing replication log: {}", text)
-            },
+            }
         }
     }
 
-    pub async fn get_changes(&self, since: &Option<String>) -> Result<Option<Changes>, Box<dyn Error>> {
+    pub async fn get_changes(
+        &self,
+        since: &Option<String>,
+    ) -> Result<Option<Changes>, Box<dyn Error>> {
         let mut url = self.url.clone();
         url.path_segments_mut().unwrap().push("_changes");
         url.query_pairs_mut().append_pair("feed", "normal");
@@ -196,7 +197,7 @@ impl Database {
         match since {
             Some(since) => {
                 url.query_pairs_mut().append_pair("since", since);
-            },
+            }
             None => {}
         };
 
@@ -209,7 +210,7 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading changes: {}", text)
-            },
+            }
         }
     }
 
@@ -231,7 +232,7 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading revs diff: {}", text)
-            },
+            }
         }
     }
 
@@ -254,7 +255,7 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem reading docs: {}", text)
-            },
+            }
         }
     }
 
@@ -269,7 +270,7 @@ impl Database {
             _ => {
                 let text = response.text().await?;
                 panic!("Problem writing docs: {}", text)
-            },
+            }
         }
     }
 }

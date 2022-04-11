@@ -48,10 +48,15 @@ impl Replicator {
         let mut current_seq_number = 0;
         while current_seq_number < source_seq_number {
             println!("replicating batch...");
-            let update_seq = self.replicate_batch(source, target, &replication_id).await?;
+            let update_seq = self
+                .replicate_batch(source, target, &replication_id)
+                .await?;
             let (n, _rest) = update_seq.split_once("-").unwrap();
             current_seq_number = n.parse::<usize>().unwrap();
-            println!("current seq: {}, source seq: {}", current_seq_number, source_seq_number);
+            println!(
+                "current seq: {}, source seq: {}",
+                current_seq_number, source_seq_number
+            );
         }
 
         println!("Replication complete.");
@@ -97,7 +102,7 @@ impl Replicator {
         &self,
         source: &Database,
         target: &Database,
-        replication_id: &str
+        replication_id: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let session_id = Uuid::new_v4();
 
@@ -164,11 +169,18 @@ impl Replicator {
         source_replication_log.source_last_seq = Some(changes.last_seq.clone());
         target_replication_log.session_id = Some(session_id);
         target_replication_log.source_last_seq = Some(changes.last_seq.clone());
-        
+
         // println!("source {:?}", source_replication_log);
         // println!("target {:?}", target_replication_log);
 
-        let save_replication_logs = self.save_replication_logs(&source, &target, &source_replication_log, &target_replication_log).await;
+        let save_replication_logs = self
+            .save_replication_logs(
+                &source,
+                &target,
+                &source_replication_log,
+                &target_replication_log,
+            )
+            .await;
         save_replication_logs.0?;
         save_replication_logs.1?;
 
@@ -181,60 +193,47 @@ impl Replicator {
         &self,
         source: &Database,
         target: &Database,
-        replication_id: &str
+        replication_id: &str,
     ) -> (
         Result<ReplicationLog, Box<dyn StdError>>,
         Result<ReplicationLog, Box<dyn StdError>>,
     ) {
         let source_replication_log = source.get_replication_log(replication_id);
         let target_replication_log = target.get_replication_log(replication_id);
-        join!(
-            source_replication_log,
-            target_replication_log
-        )
+        join!(source_replication_log, target_replication_log)
     }
-    
+
     async fn save_replication_logs(
         &self,
         source: &Database,
         target: &Database,
         source_replication_log: &ReplicationLog,
-        target_replication_log: &ReplicationLog
-    ) -> (
-        Result<(), Box<dyn StdError>>,
-        Result<(), Box<dyn StdError>>,
-    ) {
+        target_replication_log: &ReplicationLog,
+    ) -> (Result<(), Box<dyn StdError>>, Result<(), Box<dyn StdError>>) {
         let save_source_replication_log = source.save_replication_log(source_replication_log);
         let save_target_replication_log = target.save_replication_log(target_replication_log);
-        join!(
-            save_source_replication_log,
-            save_target_replication_log
-        )
+        join!(save_source_replication_log, save_target_replication_log)
     }
-    
+
     fn common_ancestor(
         &self,
         source_replication_log: &ReplicationLog,
-        target_replication_log: &ReplicationLog
+        target_replication_log: &ReplicationLog,
     ) -> Option<String> {
         match source_replication_log.session_id == target_replication_log.session_id {
-            true => {
-                match &source_replication_log.source_last_seq {
-                    Some(source_last_seq) => {
-                        match &target_replication_log.source_last_seq {
-                            Some(target_source_last_seq) => {
-                                match source_last_seq == target_source_last_seq {
-                                    true => Some(source_last_seq.to_string()),
-                                    false => None
-                                }
-                            },
-                            None => None
+            true => match &source_replication_log.source_last_seq {
+                Some(source_last_seq) => match &target_replication_log.source_last_seq {
+                    Some(target_source_last_seq) => {
+                        match source_last_seq == target_source_last_seq {
+                            true => Some(source_last_seq.to_string()),
+                            false => None,
                         }
-                    },
-                    None => None
-                }
+                    }
+                    None => None,
+                },
+                None => None,
             },
-            false => None
+            false => None,
         }
     }
 }
