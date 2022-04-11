@@ -183,6 +183,7 @@ impl Database {
         url.path_segments_mut().unwrap().push("_changes");
         url.query_pairs_mut().append_pair("feed", "normal");
         url.query_pairs_mut().append_pair("style", "all_docs");
+        url.query_pairs_mut().append_pair("limit", "1000");
         match since {
             Some(since) => {
                 url.query_pairs_mut().append_pair("since", since);
@@ -226,6 +227,7 @@ impl Database {
         let mut url = self.url.clone();
         url.path_segments_mut().unwrap().push("_bulk_get");
         url.query_pairs_mut().append_pair("revs", "true");
+        url.query_pairs_mut().append_pair("attachments", "true");
 
         let client = reqwest::Client::new();
         let response = client.post(url).json(&docs).send().await?;
@@ -246,7 +248,10 @@ impl Database {
         let response = client.post(url).json(&docs).send().await?;
         match response.status() {
             StatusCode::CREATED => Ok(()),
-            _ => panic!("Problem writing docs"),
+            _ => {
+                let text = response.text().await?;
+                panic!("Problem writing docs: {}", text)
+            },
         }
     }
 }

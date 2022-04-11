@@ -42,9 +42,21 @@ impl Replicator {
         let replication_id = self.replication_id(source_server_info, target_server_info);
         println!("replication id {}", replication_id);
 
-        Ok(self
-            .replicate_batch(source, target, &replication_id)
-            .await?)
+        let (n, _rest) = source_db_info.update_seq.split_once("-").unwrap();
+        let source_seq_number = n.parse::<usize>().unwrap();
+
+        let mut current_seq_number = 0;
+        while current_seq_number < source_seq_number {
+            println!("replicating batch...");
+            let update_seq = self.replicate_batch(source, target, &replication_id).await?;
+            let (n, _rest) = update_seq.split_once("-").unwrap();
+            current_seq_number = n.parse::<usize>().unwrap();
+            println!("current seq: {}, source seq: {}", current_seq_number, source_seq_number);
+        }
+
+        println!("Replication complete.");
+
+        Ok(())
     }
 
     // TODO: do we need to use the database names here, too?
@@ -85,8 +97,8 @@ impl Replicator {
         &self,
         source: &Database,
         target: &Database,
-        replication_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        replication_id: &str
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let session_id = Uuid::new_v4();
 
         let logs = self
@@ -96,14 +108,14 @@ impl Replicator {
         let mut source_replication_log = logs.0?;
         let mut target_replication_log = logs.1?;
 
-        println!("source {:?}", source_replication_log);
-        println!("target {:?}", target_replication_log);
+        // println!("source {:?}", source_replication_log);
+        // println!("target {:?}", target_replication_log);
 
         let since = self.common_ancestor(&source_replication_log, &target_replication_log);
         println!("replicating since {:?}", since);
 
         let changes = source.get_changes(&since).await?.unwrap();
-        println!("{:?}", changes);
+        // println!("{:?}", changes);
 
         let mut revs: HashMap<String, Vec<String>> = HashMap::new();
         for row in changes.results.iter() {
@@ -111,11 +123,11 @@ impl Replicator {
             let r = row.changes.iter().map(|c| c.rev.clone()).collect();
             revs.insert(id, r);
         }
-        println!("{:?}", revs);
+        // println!("{:?}", revs);
 
         let revs = RevsDiffRequest { body: revs };
         let revs_diff = target.get_revs_diff(&revs).await?.unwrap();
-        println!("{:?}", revs_diff);
+        // println!("{:?}", revs_diff);
 
         let mut docs = vec![];
         for (id, entry) in revs_diff.body.iter() {
@@ -128,10 +140,10 @@ impl Replicator {
             }
         }
         let docs_request = DocsRequest { docs };
-        println!("{:?}", docs_request);
+        // println!("{:?}", docs_request);
 
         let docs_response = source.get_docs(&docs_request).await?.unwrap();
-        println!("{:?}", docs_response);
+        // println!("{:?}", docs_response);
 
         let mut docs = vec![];
         for entry in docs_response.results.iter() {
@@ -141,12 +153,11 @@ impl Replicator {
             }
         }
 
-        // TODO: handle attachments
         let bulk_docs_request = BulkDocsRequest {
             docs,
             new_edits: false,
         };
-        println!("{:?}", bulk_docs_request);
+        // println!("{:?}", bulk_docs_request);
         target.save_docs(&bulk_docs_request).await?;
 
         source_replication_log.session_id = Some(session_id);
@@ -154,16 +165,16 @@ impl Replicator {
         target_replication_log.session_id = Some(session_id);
         target_replication_log.source_last_seq = Some(changes.last_seq.clone());
         
-        println!("source {:?}", source_replication_log);
-        println!("target {:?}", target_replication_log);
+        // println!("source {:?}", source_replication_log);
+        // println!("target {:?}", target_replication_log);
 
         let save_replication_logs = self.save_replication_logs(&source, &target, &source_replication_log, &target_replication_log).await;
         save_replication_logs.0?;
         save_replication_logs.1?;
 
-        println!("Done.");
+        println!("Batch complete.");
 
-        Ok(())
+        Ok(changes.last_seq)
     }
 
     async fn get_replication_logs(
