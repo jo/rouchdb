@@ -1,7 +1,7 @@
 # RouchDB
 Minimal CouchDB on Rust.
 
-Dream: have a Rust database which can replicate to and from a Couch. No MR.
+Dream: have a Rust database which can replicate to and from a Couch. No MR. Optimized for small docs with small attachments.
 
 First Steps:
 1. Write a HTTP database adapter

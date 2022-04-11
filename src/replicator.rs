@@ -1,8 +1,12 @@
 use std::collections::HashMap;
+use tokio::join;
+use serde::ser::StdError;
 
 use crate::database::{
     Database,
     ServerInfo,
+    DatabaseInfo,
+    ReplicationLog,
     RevsDiffRequest,
     DocsRequest,
     DocsRequestEntry,
@@ -27,26 +31,48 @@ impl Replicator {
     }
 
     async fn replicate(&self, source: &Database, target: &Database) -> Result<(), Box<dyn std::error::Error>> {
-        let source_server_info = source.get_server_info().await?.expect("cannot fetch source server info");
+        let infos = self.get_infos(source, target).await;
+        
+        let source_server_info = infos.0?.unwrap();
+        let target_server_info = infos.1?.unwrap();
+        let source_db_info = infos.2?.unwrap();
+        let target_db_info = infos.3?.unwrap();
+        
         println!("source {:?}", source_server_info);
-
-        let target_server_info = target.get_server_info().await?.expect("cannot fetch target server info");
         println!("target {:?}", target_server_info);
-
-        let source_db_info = source.get_database_info().await?.expect("cannot fetch source db info");
         println!("source {:?}", source_db_info);
-
-        let target_db_info = target.get_database_info().await?.expect("cannot fetch target db info");
         println!("target {:?}", target_db_info);
 
         let replication_id = self.replication_id(source_server_info, target_server_info);
         println!("replication id {}", replication_id);
 
-        // TODO: use session id
-        let source_replication_log = source.get_replication_log(&replication_id).await?;
-        println!("source {:?}", source_replication_log);
+        Ok(self.replicate_batch(source, target, &replication_id).await?)
+    }
 
-        let target_replication_log = target.get_replication_log(&replication_id).await?;
+    // TODO: do we need to use the database names here, too?
+    fn replication_id(&self, source_server_info: ServerInfo, target_server_info: ServerInfo) -> String {
+        let replication_id_data = vec![source_server_info.uuid, target_server_info.uuid];
+        let replication_digest = md5::compute(replication_id_data.join(""));
+        format!("{:x}", replication_digest)
+    }
+
+    async fn get_infos(&self, source: &Database, target: &Database) -> (Result<std::option::Option<ServerInfo>, Box<dyn StdError>>, Result<std::option::Option<ServerInfo>, Box<dyn StdError>>, Result<std::option::Option<DatabaseInfo>, Box<dyn StdError>>, Result<std::option::Option<DatabaseInfo>, Box<dyn StdError>>) {
+        let source_server_info = source.get_server_info();
+        let target_server_info = target.get_server_info();
+        let source_db_info = source.get_database_info();
+        let target_db_info = target.get_database_info();
+        join!(source_server_info, target_server_info, source_db_info, target_db_info)
+    }
+
+    // TODO: actually batch things
+    async fn replicate_batch(&self, source: &Database, target: &Database, replication_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // TODO: use session id
+        let logs = self.get_replication_logs(source, target, replication_id).await;
+
+        let source_replication_log = logs.0?;
+        let target_replication_log = logs.1?;
+
+        println!("source {:?}", source_replication_log);
         println!("target {:?}", target_replication_log);
 
         // TODO: Compare Replication Logs
@@ -107,11 +133,10 @@ impl Replicator {
 
         Ok(())
     }
-
-    // TODO: do we need to use the database names here, too?
-    fn replication_id(&self, source_server_info: ServerInfo, target_server_info: ServerInfo) -> String {
-        let replication_id_data = vec![source_server_info.uuid, target_server_info.uuid];
-        let replication_digest = md5::compute(replication_id_data.join(""));
-        format!("{:x}", replication_digest)
+    
+    async fn get_replication_logs(&self, source: &Database, target: &Database, replication_id: &str) -> (Result<std::option::Option<ReplicationLog>, Box<dyn StdError>>, Result<std::option::Option<ReplicationLog>, Box<dyn StdError>>) {
+        let source_replication_log = source.get_replication_log(replication_id);
+        let target_replication_log = target.get_replication_log(replication_id);
+        join!(source_replication_log, target_replication_log)
     }
 }
